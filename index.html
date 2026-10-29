@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rapportino Straordinario</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --fg:#1b2430; --mut:#5d6b7a; --line:#d5dbe1; --acc:#0b6b3a; --acc2:#095a31; --danger:#b3261e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12161b; --card:#1b2129; --fg:#e8edf2; --mut:#9aa7b4; --line:#33404d; --acc:#2fa36a; --acc2:#3bb87a; --danger:#f2736b; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui,Segoe UI,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.3rem; margin:8px 0 16px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); margin:0 0 10px; }
+  label { display:block; font-size:.85rem; color:var(--mut); margin:8px 0 3px; }
+  input[type=text], input[type=date], input[type=time], input[type=number], select, textarea {
+    width:100%; padding:10px; font:inherit; color:var(--fg); background:var(--bg);
+    border:1px solid var(--line); border-radius:8px; }
+  textarea { min-height:140px; resize:vertical; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .chk { display:flex; align-items:center; gap:10px; margin:8px 0; color:var(--fg); font-size:1rem; }
+  .chk input { width:22px; height:22px; accent-color:var(--acc); }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button { border:0; background:var(--bg); color:var(--fg); padding:10px 22px; font:inherit; cursor:pointer; }
+  .seg button.on { background:var(--acc); color:#fff; }
+  .agent { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; }
+  .agent header { display:flex; justify-content:space-between; align-items:center; font-weight:600; }
+  button.btn { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:12px 18px; font:inherit; cursor:pointer; }
+  button.btn:hover { background:var(--acc2); }
+  button.ghost { background:transparent; color:var(--acc); border:1px solid var(--acc); }
+  button.del { background:transparent; border:0; color:var(--danger); font:inherit; cursor:pointer; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; }
+  .actions .btn.big { flex:1; font-size:1.1rem; padding:14px; }
+  #msg { color:var(--danger); min-height:1.2em; margin:6px 0; }
+  .hidden { display:none; }
+  /* animazioni */
+  @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+  @keyframes unlock { 0% { opacity:.35; transform:translateY(-10px) scale(.97); }
+                      60% { transform:translateY(1px) scale(1.01); }
+                      100% { opacity:1; transform:none; } }
+  @keyframes glow { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--acc) 55%, transparent); }
+                    100% { box-shadow:0 0 0 12px transparent; } }
+  .cascade > div { transition:opacity .3s ease, filter .3s ease; }
+  .cascade > div.locked { opacity:.4; filter:grayscale(1); }
+  .cascade > div.reveal { animation:unlock .45s ease; }
+  .cascade > div.reveal .dd-btn { animation:glow .8s ease-out; border-color:var(--acc); }
+  select { transition:border-color .3s ease; }
+
+  /* menu a tendina personalizzato (Regione / Provincia / Comune) */
+  .native-hidden { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+  .dd { position:relative; }
+  .dd.open { z-index:50; }
+  .dd-btn { width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px; text-align:left;
+    padding:11px 12px; font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line);
+    border-radius:10px; cursor:pointer; transition:border-color .2s, box-shadow .2s, background .2s; }
+  .dd-btn:hover:not(:disabled) { border-color:var(--acc); }
+  .dd.open .dd-btn, .dd-btn:focus-visible { border-color:var(--acc); box-shadow:0 0 0 3px color-mix(in srgb, var(--acc) 25%, transparent); outline:none; }
+  .dd-btn:disabled { cursor:not-allowed; }
+  .dd-val { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dd-val.ph { color:var(--mut); }
+  .dd-chev { flex:none; width:18px; height:18px; color:var(--acc); transition:transform .25s ease; }
+  .dd.open .dd-chev { transform:rotate(180deg); }
+  .dd-panel { position:absolute; left:0; right:0; top:calc(100% + 6px); background:var(--card);
+    border:1px solid var(--line); border-radius:12px; overflow:hidden;
+    box-shadow:0 14px 34px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.08);
+    opacity:0; visibility:hidden; transform:translateY(-6px) scale(.98); transform-origin:top;
+    transition:opacity .18s ease, transform .18s ease, visibility 0s linear .18s; }
+  .dd.open .dd-panel { opacity:1; visibility:visible; transform:none; transition-delay:0s; }
+  .dd-search { display:block; width:100%; border:0; border-bottom:1px solid var(--line); border-radius:0;
+    padding:11px 12px 11px 36px; font:inherit; color:var(--fg); outline:none;
+    background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px center / 16px; }
+  .dd-list { list-style:none; margin:0; padding:6px; max-height:260px; overflow-y:auto; overscroll-behavior:contain; }
+  .dd-list li { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 10px;
+    border-radius:8px; cursor:pointer; transition:background .12s; }
+  .dd-list li.hl { background:color-mix(in srgb, var(--acc) 14%, transparent); }
+  .dd-list li.sel { font-weight:600; color:var(--acc); }
+  .dd-list li.sel::after { content:"\2713"; }
+  .dd-list li.empty { color:var(--mut); cursor:default; justify-content:center; }
+  .dd.open .dd-list li { animation:slideIn .18s ease both; }
+  #ticketBox, #ceiBox, .agent { animation:slideIn .25s ease; }
+  .btn { transition:background .2s ease, transform .1s ease; }
+  .btn:active { transform:scale(.97); }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+  iframe { width:100%; height:80vh; border:1px solid var(--line); border-radius:8px; margin-top:12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Rapportino di Intervento Straordinario</h1>
+
+  <section>
+    <h2>Giorno e luogo</h2>
+    <label for="giorno">Del giorno</label>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="giorno" class="dt" placeholder="gg/mm/aaaa" maxlength="10" inputmode="numeric" autocomplete="off">
+      <button type="button" class="btn ghost" id="oggi">Oggi</button>
+    </div>
+    <div class="row cascade">
+      <div><label for="regione">Regione</label><select id="regione"></select></div>
+      <div class="locked"><label for="provincia">Provincia</label><select id="provincia" disabled></select></div>
+      <div class="locked"><label for="comune">Comune</label><select id="comune" disabled></select></div>
+    </div>
+    <label for="dettaglio">Dettaglio luogo / impianto (facoltativo)</label>
+    <input type="text" id="dettaglio" placeholder="es. Stazione, km, impianto">
+    <label for="anormalita">Tipo di anormalit&agrave; (facoltativo)</label>
+    <input type="text" id="anormalita">
+  </section>
+
+  <section>
+    <h2>Ticket e chiamata</h2>
+    <label>Ticket / avviso di riferimento previsto?</label>
+    <div class="seg" id="ticketSeg">
+      <button type="button" data-v="no" class="on">No</button>
+      <button type="button" data-v="si">S&igrave;</button>
+    </div>
+    <div id="ticketBox" class="hidden">
+      <label for="ticket">Numero ticket</label>
+      <input type="text" id="ticket" inputmode="numeric">
+    </div>
+    <div class="chk" style="margin-top:14px"><input type="checkbox" id="cei"><label for="cei" style="margin:0;color:var(--fg)">Chiamata C.E.I.</label></div>
+    <div id="ceiBox" class="row hidden">
+      <div><label for="fono">Con fono n.</label><input type="text" id="fono" inputmode="tel"></div>
+      <div><label for="oreCei">Alle ore</label><input type="text" id="oreCei" class="tm" placeholder="hh:mm" maxlength="5" inputmode="numeric" autocomplete="off"></div>
+    </div>
+    <div class="chk"><input type="checkbox" id="prol"><label for="prol" style="margin:0;color:var(--fg)">Prolungamento</label></div>
+  </section>
+
+  <section>
+    <h2>Agenti intervenuti (max 5)</h2>
+    <div id="agenti"></div>
+    <button type="button" class="btn ghost" id="addAgent">+ Aggiungi agente</button>
+  </section>
+
+  <section>
+    <h2>Descrizione intervento</h2>
+    <textarea id="descr" placeholder="Descrivi l'intervento..."></textarea>
+  </section>
+
+  <section>
+    <h2>Firma agenti Preposto / CT</h2>
+    <label for="firma">Nome e cognome in stampatello</label>
+    <input type="text" id="firma" style="text-transform:uppercase" autocomplete="name">
+  </section>
+
+  <div id="msg"></div>
+  <div class="actions">
+    <button type="button" class="btn big" id="gen">Genera PDF</button>
+    <button type="button" class="btn ghost" id="reset">Nuovo rapportino</button>
+  </div>
+  <iframe id="preview" class="hidden" title="Anteprima PDF"></iframe>
+</main>
+
+<script src="lib/pdf-lib.min.js"></script>
+<script src="data/comuni.js"></script>
+<script src="lib/fontkit.umd.min.js"></script>
+<script src="data/modulo.js"></script>
+<script src="data/fonts.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const PAGE_H = 841.92;
+// Coordinate dal modulo (pt, origine in alto a sinistra)
+const COL = { rep:[273,311], arrivo:[312,369], termine:[370,439], rientro:[441,510], auto:[511,574] };
+const ROW_TOP = [335.2, 358.4, 381.0, 403.7, 426.4];   // 5 righe agenti
+const ROW_H = 22.6;
+const DESC_LINES = [479.0,497.3,515.5,533.8,552.0,570.2,588.5,606.8]; // alto di ogni riga descrizione
+const MAX_AGENTI = 5;
+
+// ---- storage (comodità, non essenziale) ----
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+
+// ---- menu a tendina personalizzato con ricerca ----
+const DD = new Map();
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function enhance(sel) {
+  sel.classList.add('native-hidden'); sel.tabIndex = -1;
+  const wrap = document.createElement('div'); wrap.className = 'dd';
+  wrap.innerHTML = `<button type="button" class="dd-btn" aria-haspopup="listbox"><span class="dd-val"></span>
+    <svg class="dd-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div class="dd-panel"><input class="dd-search" type="text" placeholder="Cerca..." autocomplete="off"><ul class="dd-list" role="listbox"></ul></div>`;
+  sel.after(wrap);
+  const btn = wrap.querySelector('.dd-btn'), val = wrap.querySelector('.dd-val'),
+        search = wrap.querySelector('.dd-search'), list = wrap.querySelector('.dd-list');
+  let items = [], shown = [], hl = -1;
+  const close = () => wrap.classList.remove('open');
+  const render = () => {
+    const q = norm(search.value.trim());
+    shown = items.filter(i => norm(i).includes(q));
+    if (q) shown.sort((a, b) => (norm(b).startsWith(q) - norm(a).startsWith(q)) || 0); // prima chi inizia con il testo cercato
+    hl = Math.max(0, shown.indexOf(sel.value));
+    list.innerHTML = shown.length ? shown.map((i, n) => `<li role="option" data-n="${n}" class="${i === sel.value ? 'sel' : ''}">${i}</li>`).join('')
+                                  : '<li class="empty">Nessun risultato</li>';
+    mark(true);
+  };
+  const mark = scroll => {
+    list.querySelectorAll('li.hl').forEach(l => l.classList.remove('hl'));
+    const el = list.querySelector(`li[data-n="${hl}"]`);
+    if (el) { el.classList.add('hl'); if (scroll) el.scrollIntoView({ block: 'nearest' }); }
+  };
+  const choose = v => { sel.value = v; sel.dispatchEvent(new Event('change')); close(); btn.focus(); };
+  const open = () => {
+    if (sel.disabled) return;
+    DD.forEach(d => d.close());
+    search.value = ''; render(); wrap.classList.add('open');
+    setTimeout(() => search.focus({ preventScroll: true }), 50);
+  };
+  const refresh = () => {
+    items = [...sel.options].filter(o => o.value).map(o => o.value);
+    btn.disabled = sel.disabled;
+    const ph = sel.options[0] ? sel.options[0].textContent : '';
+    val.textContent = sel.value || ph; val.classList.toggle('ph', !sel.value);
+  };
+  btn.onclick = () => wrap.classList.contains('open') ? close() : open();
+  search.oninput = render;
+  list.onclick = e => { const li = e.target.closest('li[data-n]'); if (li) choose(shown[+li.dataset.n]); };
+  list.onmousemove = e => { const li = e.target.closest('li[data-n]'); if (li && +li.dataset.n !== hl) { hl = +li.dataset.n; mark(false); } };
+  wrap.addEventListener('keydown', e => {
+    if (!wrap.classList.contains('open')) { if (e.key === 'ArrowDown' && e.target === btn) { e.preventDefault(); open(); } return; }
+    if (e.key === 'Escape') { close(); btn.focus(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); hl = Math.min(shown.length - 1, hl + 1); mark(true); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); hl = Math.max(0, hl - 1); mark(true); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (shown[hl]) choose(shown[hl]); }
+  });
+  sel.addEventListener('change', refresh);
+  DD.set(sel, { refresh, close });
+  refresh();
+}
+document.addEventListener('click', e => { if (!e.target.closest('.dd')) DD.forEach(d => d.close()); });
+
+// ---- luogo a cascata ----
+function fill(sel, items, ph) {
+  sel.innerHTML = '<option value="">' + ph + '</option>' + items.map(i => `<option>${i}</option>`).join('');
+  if (DD.has(sel)) DD.get(sel).refresh();
+}
+fill($('regione'), Object.keys(COMUNI), 'Seleziona regione');
+['regione', 'provincia', 'comune'].forEach(id => enhance($(id)));
+// abilita/disabilita un menu con animazione di "sblocco"
+function unlock(sel, on) {
+  const box = sel.parentElement;
+  sel.disabled = !on;
+  if (DD.has(sel)) DD.get(sel).refresh();
+  box.classList.toggle('locked', !on);
+  box.classList.remove('reveal');
+  if (on) { void box.offsetWidth; box.classList.add('reveal'); box.addEventListener('animationend', () => box.classList.remove('reveal'), { once: true }); }
+}
+$('regione').onchange = () => {
+  const r = $('regione').value;
+  fill($('provincia'), r ? Object.keys(COMUNI[r]) : [], 'Seleziona provincia');
+  unlock($('provincia'), !!r);
+  fill($('comune'), [], 'Seleziona comune'); unlock($('comune'), false);
+};
+$('provincia').onchange = () => {
+  const r = $('regione').value, p = $('provincia').value;
+  fill($('comune'), p ? COMUNI[r][p] : [], 'Seleziona comune');
+  unlock($('comune'), !!p);
+};
+
+// ---- ticket / CEI ----
+let ticketSi = false;
+document.querySelectorAll('#ticketSeg button').forEach(b => b.onclick = () => {
+  ticketSi = b.dataset.v === 'si';
+  document.querySelectorAll('#ticketSeg button').forEach(x => x.classList.toggle('on', x === b));
+  $('ticketBox').classList.toggle('hidden', !ticketSi);
+});
+// Chiamata CEI e Prolungamento sono alternativi:
+//  CEI         -> sblocca Rep/Disp, arrivo, termine, rientro, auto privata
+//  Prolungamento -> sblocca solo l'ora di termine intervento
+const FIELDS = { '.rd': 'cei', '.arrivo': 'cei', '.rientro': 'cei', '.auto': 'cei', '.termine': 'any' };
+function applyMode(root = document) {
+  const cei = $('cei').checked, prol = $('prol').checked;
+  $('ceiBox').classList.toggle('hidden', !cei);
+  root.querySelectorAll('.agent').forEach(a => {
+    for (const [sel, need] of Object.entries(FIELDS)) {
+      const el = a.querySelector(sel);
+      const on = need === 'cei' ? cei : (cei || prol);
+      el.disabled = !on;
+      if (!on) { el.type === 'checkbox' ? el.checked = false : el.value = ''; }
+      el.closest('div').style.opacity = on ? 1 : .45;
+    }
+  });
+}
+$('cei').onchange = () => { if ($('cei').checked) $('prol').checked = false; applyMode(); };
+$('prol').onchange = () => { if ($('prol').checked) $('cei').checked = false; applyMode(); };
+
+// ---- data e ora in formato italiano (gg/mm/aaaa, hh:mm 24 ore) ----
+const pad = n => String(n).padStart(2, '0');
+function maskTime(v) {
+  const d = v.replace(/\D/g, '').slice(0, 4);
+  return d.length > 2 ? d.slice(0, 2) + ':' + d.slice(2) : d;
+}
+function maskDate(v) {
+  const d = v.replace(/\D/g, '').slice(0, 8);
+  return [d.slice(0, 2), d.slice(2, 4), d.slice(4)].filter(Boolean).join('/');
+}
+const validTime = v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+function parseDate(v) { // "gg/mm/aaaa" -> "aaaa-mm-gg" oppure null
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v);
+  if (!m) return null;
+  const d = new Date(+m[3], +m[2] - 1, +m[1]);
+  return d.getFullYear() === +m[3] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[1] ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('tm')) e.target.value = maskTime(e.target.value);
+  if (e.target.classList.contains('dt')) e.target.value = maskDate(e.target.value);
+});
+document.addEventListener('focusout', e => {
+  const t = e.target; // "930" -> "09:30", "9" -> "09:00"
+  if (t.classList && t.classList.contains('tm') && t.value && !validTime(t.value)) {
+    const d = t.value.replace(/\D/g, '');
+    const h = d.length <= 2 ? d : d.slice(0, d.length - 2), m = d.length <= 2 ? '00' : d.slice(-2);
+    const f = pad(h) + ':' + m;
+    t.value = validTime(f) ? f : t.value;
+  }
+});
+$('oggi').onclick = () => { const n = new Date(); $('giorno').value = `${pad(n.getDate())}/${pad(n.getMonth() + 1)}/${n.getFullYear()}`; };
+
+// ---- agenti ----
+function addAgent(data = {}) {
+  if ($('agenti').children.length >= MAX_AGENTI) { $('msg').textContent = 'Il modulo prevede al massimo 5 agenti.'; return; }
+  const el = document.createElement('div');
+  el.className = 'agent';
+  el.innerHTML = `
+    <header><span class="n"></span><button type="button" class="del">Rimuovi</button></header>
+    <label>Nome e cognome</label><input type="text" class="nome" value="${data.nome || ''}">
+    <div class="row">
+      <div><label>Rep / Disp</label>
+        <select class="rd"><option value="">-</option><option>Rep</option><option>Disp</option></select></div>
+      <div><label>Ora arrivo punto di ritrovo</label><input type="text" class="arrivo tm" placeholder="hh:mm" maxlength="5" inputmode="numeric" autocomplete="off"></div>
+      <div><label>Ora termine intervento</label><input type="text" class="termine tm" placeholder="hh:mm" maxlength="5" inputmode="numeric" autocomplete="off"></div>
+      <div><label>Ora rientro in residenza</label><input type="text" class="rientro tm" placeholder="hh:mm" maxlength="5" inputmode="numeric" autocomplete="off"></div>
+    </div>
+    <div class="chk"><input type="checkbox" class="auto"><span>Utilizzo auto privata</span></div>`;
+  el.querySelector('.del').onclick = () => { el.remove(); renumber(); };
+  $('agenti').appendChild(el);
+  renumber();
+  applyMode();
+}
+function renumber() {
+  [...$('agenti').children].forEach((a, i) => a.querySelector('.n').textContent = 'Agente ' + (i + 1));
+}
+$('addAgent').onclick = () => { $('msg').textContent = ''; addAgent(); };
+
+// ---- ricorda firma e primo agente ----
+$('firma').value = store.get('firma') || '';
+
+// ---- utilità PDF ----
+const fmtData = iso => iso ? iso.split('-').reverse().join('/') : '';
+function wrap(text, font, size, maxW) {
+  const lines = [];
+  for (const par of text.split(/\r?\n/)) {
+    let cur = '';
+    for (const w of par.split(/\s+/).filter(Boolean)) {
+      const t = cur ? cur + ' ' + w : w;
+      if (font.widthOfTextAtSize(t, size) <= maxW) cur = t;
+      else { if (cur) lines.push(cur); cur = w; }
+    }
+    lines.push(cur);
+  }
+  return lines;
+}
+function b64ToBytes(b64) { const s = atob(b64); const a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); return a; }
+const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+async function genera() {
+  const msg = $('msg'); msg.textContent = '';
+  const giorno = parseDate($('giorno').value.trim()), comune = $('comune').value;
+  if (!giorno) { msg.textContent = 'Inserisci il giorno nel formato gg/mm/aaaa.'; return; }
+  const badTime = [...document.querySelectorAll('.tm')].find(t => t.value && !validTime(t.value));
+  if (badTime) { badTime.focus(); msg.textContent = 'Orario non valido (usa hh:mm, 24 ore, es. 15:00).'; return; }
+  if (!comune) { msg.textContent = 'Seleziona regione, provincia e comune.'; return; }
+  if (ticketSi && !$('ticket').value.trim()) { msg.textContent = 'Inserisci il numero del ticket.'; return; }
+
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const pdf = await PDFDocument.load(b64ToBytes(window.MODULO_B64));
+  const page = pdf.getPage(0);
+  pdf.registerFontkit(fontkit);
+  const font = await pdf.embedFont(b64ToBytes(window.FONT_REG_B64), { subset: true });
+  const bold = await pdf.embedFont(b64ToBytes(window.FONT_MED_B64), { subset: true });
+  const ink = rgb(0, 0, 0);
+  const Y = top => PAGE_H - top;
+
+  const text = (t, x, topBase, size = 10, f = font, maxW) => {
+    if (!t) return;
+    if (maxW) while (size > 6 && f.widthOfTextAtSize(t, size) > maxW) size -= 0.5;
+    page.drawText(t, { x, y: Y(topBase) + 2.5, size, font: f, color: ink });
+  };
+  const center = (t, [x0, x1], topBase, size = 10, f = font) => {
+    if (!t) return;
+    const w = f.widthOfTextAtSize(t, size);
+    page.drawText(t, { x: x0 + (x1 - x0 - w) / 2, y: Y(topBase) + 2.5, size, font: f, color: ink });
+  };
+  // X centrata (orizzontale e verticale, sull'altezza delle maiuscole) nel riquadro
+  const cross = (x0, x1, top, bottom, size = 12) => {
+    const w = bold.widthOfTextAtSize('X', size);
+    const cap = bold.heightAtSize(size, { descender: false });
+    page.drawText('X', { x: (x0 + x1) / 2 - w / 2, y: Y((top + bottom) / 2) - cap / 2, size, font: bold, color: ink });
+  };
+
+  text(fmtData(giorno), 216, 143.5, 11);
+  const luogo = comune + ' (' + $('provincia').value + ')' + ($('dettaglio').value.trim() ? ' - ' + $('dettaglio').value.trim() : '');
+  text(luogo, 170, 166.0, 11, font, 400);
+  text($('anormalita').value.trim(), 156, 195.3, 11, font, 415);
+  if (ticketSi) text($('ticket').value.trim(), 263, 225.2, 11, font, 280);
+
+  if ($('cei').checked) {
+    cross(31.92, 47.04, 238.58, 254.66);
+    text($('fono').value.trim(), 213, 253.8, 10, font, 58);
+    text($('oreCei').value, 342, 253.8, 10);
+  }
+  if ($('prol').checked) cross(425.83, 440.97, 238.58, 254.66);
+
+  [...$('agenti').children].forEach((a, i) => {
+    const t = ROW_TOP[i] + ROW_H, q = s => a.querySelector(s);
+    text(q('.nome').value.trim(), 52, t - 6, 10, font, 215);
+    center(q('.rd').value, COL.rep, t - 6, 9);
+    center(q('.arrivo').value, COL.arrivo, t - 6);
+    center(q('.termine').value, COL.termine, t - 6);
+    center(q('.rientro').value, COL.rientro, t - 6);
+    if (q('.auto').checked) cross(COL.auto[0], COL.auto[1], ROW_TOP[i], ROW_TOP[i] + ROW_H);
+  });
+
+  // descrizione: 8 righe, riduce il carattere se serve
+  const descr = $('descr').value.replace(/\s*\r?\n\s*/g, ' ').trim(); // flusso continuo: a capo solo a fine riga
+  if (descr) {
+    let size = 10, lines;
+    for (; size >= 6; size -= 0.5) { lines = wrap(descr, font, size, 500); if (lines.length <= DESC_LINES.length) break; }
+    if (lines.length > DESC_LINES.length) { msg.textContent = 'Descrizione troppo lunga: ' + lines.length + ' righe, il modulo ne ha ' + DESC_LINES.length + '. Il testo in eccesso verrà tagliato.'; lines = lines.slice(0, DESC_LINES.length); }
+    lines.forEach((l, i) => text(l, 52, DESC_LINES[i] + 13.5, size));
+  }
+
+  const firma = $('firma').value.trim().toUpperCase();
+  text(firma, 232, 764.5, 12, bold, 275);
+  store.set('firma', firma);
+
+  const bytes = await pdf.save();
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  // Nome file: "Nome Cognome gg-mm-aaaa.pdf" (nome della firma + giorno del rapporto)
+  const chi = firma.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Rapportino';
+  const nome = `${chi} ${giorno.split('-').reverse().join('-')}.pdf`;
+  const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+  $('preview').src = url; $('preview').classList.remove('hidden');
+}
+$('gen').onclick = () => genera().catch(e => { $('msg').textContent = 'Errore: ' + e.message; });
+$('reset').onclick = () => {
+  if (!confirm('Cancellare tutti i campi?')) return;
+  location.reload();
+};
+
+addAgent();
+</script>
+</body>
+</html>
